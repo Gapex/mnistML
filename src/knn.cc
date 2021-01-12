@@ -4,6 +4,8 @@
 #include <queue>
 #include <algorithm>
 #include <unordered_map>
+#include <thread>
+#include <iostream>
 
 knn::knn() : k(75), neighbors(nullptr),
              training_data(nullptr),
@@ -56,9 +58,11 @@ void knn::find_knearest(Data *query_point)
     {
         double dist = this->calculate_distance(query_point, training_data->at(index));
         Wrapper wrapper(index, dist);
-        if(q.size() <= k || dist <= q.top().dist_to_query_point){
+        if (q.size() <= k || dist <= q.top().dist_to_query_point)
+        {
             q.emplace(wrapper);
-            if(q.size() > k){
+            if (q.size() > k)
+            {
                 q.pop();
             }
         }
@@ -109,7 +113,8 @@ int knn::predict()
     std::unordered_map<uint8_t, int> class_freq;
     for (Data *neighbor : *neighbors)
     {
-        ++class_freq[neighbor->get_label()];
+        if(neighbor)
+            ++class_freq[neighbor->get_label()];
     }
     uint8_t res_label = -1;
     int max_freq = 0;
@@ -163,21 +168,52 @@ double knn::validate_performance()
 
 double knn::test_performance()
 {
-    double performance = 0;
-    uint32_t cnt = 0, index = 0;
-    for (Data *query_point : *test_data)
-    {
-        find_knearest(query_point);
-        uint8_t prediction = predict();
-        if (prediction == query_point->get_label())
+    auto predict_task = [this](uint32_t from, uint32_t to, double *res) {
+        std::thread::id id = std::this_thread::get_id();
+        double performance = 0;
+        uint32_t cnt = 0, index = 0;
+        for (uint32_t i = from; i < to; ++i)
         {
-            ++cnt;
+            Data *query_point = this->get_test_data()->at(i);
+            find_knearest(query_point);
+            uint8_t prediction = predict();
+            if (prediction == query_point->get_label())
+            {
+                ++cnt;
+            }
+            ++index;
+            {
+                
+            }
         }
-        ++index;
-        printf("\r%u/%u) current test performance: %.3lf%%", cnt, index, cnt * 100.0 / index);
-        fflush(stdout);
+        performance = cnt * 100.0 / test_data->size();
+        std::cout << id << ' ';
+        printf("test performance: %.3lf%%\n", performance);
+        *res = performance;
+    };
+    uint32_t ncpus = std::thread::hardware_concurrency();
+    printf("%u CPU detcted\n", ncpus);
+    double *res_ptr = new double[ncpus];
+    auto _ = std::make_shared<double*>(res_ptr);
+    std::vector<std::thread> ts;
+    uint32_t chunk_size = this->test_data->size() / ncpus;
+    uint32_t start_index = 0;
+    for (uint32_t i = 0; i < ncpus; ++i)
+    {
+        uint32_t end_index = std::min(static_cast<size_t>(start_index + chunk_size), test_data->size());
+        std::thread t(predict_task, start_index, end_index, &res_ptr[i]);
+        std::cout << "thread(" << t.get_id() << ")";
+        printf(" %u ~ %u\n", start_index, end_index);
+        ts.emplace_back(std::move(t));
+        start_index = end_index;
     }
-    performance = cnt * 100.0 / test_data->size();
-    printf("test performance: %.3lf%%\n", performance);
-    return performance;
+    for(std::thread &t : ts){
+        t.join();
+    }
+    double res = 0;
+    for(uint32_t i = 0; i<ncpus; ++i){
+        res += res_ptr[i];
+    }
+    res /= ncpus;
+    return res;
 }
