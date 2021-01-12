@@ -6,8 +6,10 @@
 #include <unordered_map>
 #include <thread>
 #include <iostream>
+#include <numeric>
+#include <mutex>
 
-knn::knn() : k(75), neighbors(nullptr),
+knn::knn() : k(75),
              training_data(nullptr),
              test_data(nullptr),
              validation_data(nullptr)
@@ -31,7 +33,7 @@ int knn::get_k()
     return this->k;
 }
 
-void knn::find_knearest(Data *query_point)
+std::vector<uint32_t> knn::find_knearest(Data *query_point)
 {
     //在训练集train_data中找到query_point的k近邻点
     //使用大根堆实现
@@ -67,19 +69,15 @@ void knn::find_knearest(Data *query_point)
             }
         }
     }
-    if (!neighbors)
-        neighbors = new std::vector<Data *>();
-    else
-        neighbors->clear();
-    neighbors->reserve(q.size());
+    std::vector<uint32_t> neighbors;
+    neighbors.reserve(q.size());
     while (q.empty() == false)
     {
         auto &wrapper = q.top();
-        Data *data = training_data->at(wrapper.index_in_train_set);
-        neighbors->push_back(data);
+        neighbors.push_back(wrapper.index_in_train_set);
         q.pop();
     }
-    std::reverse(neighbors->begin(), neighbors->end());
+    return std::move(neighbors);
 }
 
 void knn::set_training_data(std::vector<Data *> *data)
@@ -108,13 +106,13 @@ std::vector<Data *> *knn::get_validation_data()
     return validation_data;
 }
 
-int knn::predict()
+int knn::predict(std::vector<uint32_t> neighbors)
 {
     std::unordered_map<uint8_t, int> class_freq;
-    for (Data *neighbor : *neighbors)
+    for (uint32_t index : neighbors)
     {
-        if(neighbor)
-            ++class_freq[neighbor->get_label()];
+        Data *neighbor = training_data->at(index);
+        ++class_freq[neighbor->get_label()];
     }
     uint8_t res_label = -1;
     int max_freq = 0;
@@ -154,8 +152,8 @@ double knn::validate_performance()
     uint32_t cnt = 0;
     for (Data *query_point : *validation_data)
     {
-        find_knearest(query_point);
-        uint8_t prediction = predict();
+        std::vector<uint32_t> neighbors = find_knearest(query_point);
+        uint8_t prediction = predict(std::move(neighbors));
         if (prediction == query_point->get_label())
         {
             ++cnt;
@@ -168,52 +166,58 @@ double knn::validate_performance()
 
 double knn::test_performance()
 {
-    auto predict_task = [this](uint32_t from, uint32_t to, double *res) {
+    std::mutex stdout_mtx;
+    uint32_t cnt = 0, nstep = 0, nitems = test_data->size();
+    auto inc_cnt = [&cnt, &stdout_mtx, nitems, &nstep](int inc, int step) {
+        std::lock_guard<std::mutex> lk(stdout_mtx);
+        cnt += inc;
+        nstep += step;
+        printf("\r%u/%u = %.3lf%%, total: %u", cnt, nstep, cnt * 100.0 / nstep, nitems);
+        int ndots = nstep % 4;
+        while(ndots >= 0){
+            --ndots;
+            putchar('.');
+        }
+        fflush(stdout);
+    };
+    auto predict_task = [this, &stdout_mtx, &inc_cnt](std::vector<Data *>::iterator begin,
+                                                      std::vector<Data *>::iterator end) {
         std::thread::id id = std::this_thread::get_id();
         double performance = 0;
-        uint32_t cnt = 0, index = 0;
-        for (uint32_t i = from; i < to; ++i)
+        uint32_t total_size = end - begin;
+        for (auto iter = begin; iter != end; ++iter)
         {
-            Data *query_point = this->get_test_data()->at(i);
-            find_knearest(query_point);
-            uint8_t prediction = predict();
-            if (prediction == query_point->get_label())
-            {
-                ++cnt;
-            }
-            ++index;
-            {
-                
-            }
+            Data *query_point = *iter;
+            std::vector<uint32_t> neighbors = find_knearest(query_point);
+            uint8_t prediction = predict(std::move(neighbors));
+            int inc = prediction == query_point->get_label();
+            inc_cnt(inc, 1); //update the outer counter.
         }
-        performance = cnt * 100.0 / test_data->size();
-        std::cout << id << ' ';
-        printf("test performance: %.3lf%%\n", performance);
-        *res = performance;
+        return;
     };
     uint32_t ncpus = std::thread::hardware_concurrency();
-    printf("%u CPU detcted\n", ncpus);
-    double *res_ptr = new double[ncpus];
-    auto _ = std::make_shared<double*>(res_ptr);
+    std::vector<double> part_res(ncpus);
     std::vector<std::thread> ts;
     uint32_t chunk_size = this->test_data->size() / ncpus;
-    uint32_t start_index = 0;
-    for (uint32_t i = 0; i < ncpus; ++i)
+
+    uint32_t i = 0;
+    for (std::vector<Data *>::iterator start = test_data->begin(), final_end = test_data->end();
+         start != final_end;)
     {
-        uint32_t end_index = std::min(static_cast<size_t>(start_index + chunk_size), test_data->size());
-        std::thread t(predict_task, start_index, end_index, &res_ptr[i]);
-        std::cout << "thread(" << t.get_id() << ")";
-        printf(" %u ~ %u\n", start_index, end_index);
+        std::vector<Data *>::iterator end = start + chunk_size;
+        if (end > final_end)
+        {
+            end = final_end;
+        }
+        std::thread t(predict_task, start, end);
         ts.emplace_back(std::move(t));
-        start_index = end_index;
+        start = end;
     }
-    for(std::thread &t : ts){
+    for (std::thread &t : ts)
+    {
         t.join();
     }
-    double res = 0;
-    for(uint32_t i = 0; i<ncpus; ++i){
-        res += res_ptr[i];
-    }
-    res /= ncpus;
+    double res = cnt * 100 / nstep;
+    printf("test performance: %.3lf%%\n", res);
     return res;
 }
