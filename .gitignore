@@ -1,0 +1,3 @@
+build/*
+mnist/*ubyte
+mnist/*.gz
