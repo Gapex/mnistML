@@ -10,6 +10,7 @@ using byte = uint8_t;
 
 #include "data.hpp"
 #include "data_handler.hpp"
+#include "knn.hpp"
 
 bool is_little_endian()
 {
@@ -142,16 +143,22 @@ private:
 
 int main()
 {
-    const std::string train_data = "/mnt/c/Users/xjtuse/Desktop/mnist-ml/mnist/train-images.idx3-ubyte";
-    const std::string train_label = "/mnt/c/Users/xjtuse/Desktop/mnist-ml/mnist/train-labels.idx1-ubyte";
-    const std::string test_data = "/mnt/c/Users/xjtuse/Desktop/mnist-ml/mnist/t10k-images.idx3-ubyte";
-    const std::string test_label = "/mnt/c/Users/xjtuse/Desktop/mnist-ml/mnist/t10k-labels.idx1-ubyte";
-
+    const std::string train_data = "/mnt/c/Users/xjtuse/Desktop/mnist-ml/mnist/train-images-idx3-ubyte";
+    const std::string train_label = "/mnt/c/Users/xjtuse/Desktop/mnist-ml/mnist/train-labels-idx1-ubyte";
+    const std::string test_data = "/mnt/c/Users/xjtuse/Desktop/mnist-ml/mnist/t10k-images-idx3-ubyte";
+    const std::string test_label = "/mnt/c/Users/xjtuse/Desktop/mnist-ml/mnist/t10k-labels-idx1-ubyte";
+ 
     DataHandler dh;
     dh.read_feature_vector(train_data);
     dh.read_feature_labels(train_label);
     dh.count_classes();
     dh.split_data();
 
+    knn trainer;
+    trainer.set_training_data(dh.get_training_data());
+    trainer.set_test_data(dh.get_test_data());
+    trainer.set_validation_data(dh.get_validataion_data());
+    trainer.test_performance();
+    trainer.validate_performance();
     return 0;
 }
