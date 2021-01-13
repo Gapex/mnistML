@@ -25,8 +25,8 @@ int main(int argc, char * argv[])
     knn trainer;
     if(argc > 1){
         trainer.set_k(atoi(argv[1]));
-        printf("k = %d\n", trainer.get_k());
     }
+    printf("k = %d\n", trainer.get_k());
     trainer.set_training_data(dh.get_training_data());
     trainer.set_test_data(dh.get_test_data());
     trainer.set_validation_data(dh.get_validataion_data());
