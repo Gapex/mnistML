@@ -1,54 +1,37 @@
 #include "kmeans.hpp"
 
-kmeans::kmeans() : test_data(nullptr), training_data(nullptr), validation_data(nullptr)
+kmeans::kmeans()
 {
-}
-
-void free_feature_vector(std::vector<Data *> *ptr)
-{
-    if (ptr)
-    {
-        for (Data *data : *ptr)
-        {
-            delete data;
-        }
-    }
 }
 
 kmeans::~kmeans()
 {
-    free_feature_vector(training_data);
-    free_feature_vector(test_data);
-    free_feature_vector(validation_data);
 }
 
-void kmeans::set_training_data(std::vector<Data *> *vec)
+void kmeans::set_training_data(std::vector<Data> vec)
 {
-    free_feature_vector(training_data);
-    training_data = vec;
+    training_data = std::move(vec);
 }
-void kmeans::set_test_data(std::vector<Data *> *vec)
+void kmeans::set_test_data(std::vector<Data> vec)
 {
-    free_feature_vector(test_data);
-    test_data = vec;
+    test_data = std::move(vec);
 }
-void kmeans::set_validation_data(std::vector<Data *> *vec)
+void kmeans::set_validation_data(std::vector<Data> vec)
 {
-    free_feature_vector(validation_data);
-    validation_data = vec;
+    validation_data = std::move(vec);
 }
 
-std::vector<Data *> *kmeans::get_training_data()
+const std::vector<Data> &kmeans::get_training_data()
 {
     return training_data;
 }
 
-std::vector<Data *> *kmeans::get_test_data()
+const std::vector<Data> &kmeans::get_test_data()
 {
     return test_data;
 }
 
-std::vector<Data *> *kmeans::get_validation_data()
+const std::vector<Data> &kmeans::get_validation_data()
 {
     return validation_data;
 }
@@ -62,14 +45,15 @@ void kmeans::train()
         if (label_to_focus[label] == nullptr)
         {
             label_to_focus[label] = data;
-        }else{
-            label_to_focus[label] = 
         }
-
+        else
+        {
+            label_to_focus[label] =
+        }
     }
 }
 
-uint8_t kmeans::predict(Data *query)
+uint8_t kmeans::predict(const Data &query)
 {
 }
 
