@@ -173,11 +173,6 @@ double knn::test_performance()
         cnt += inc;
         nstep += step;
         printf("\r%u/%u = %.3lf%%, total: %u", cnt, nstep, cnt * 100.0 / nstep, nitems);
-        int ndots = nstep % 4;
-        while(ndots >= 0){
-            --ndots;
-            putchar('.');
-        }
         fflush(stdout);
     };
     auto predict_task = [this, &stdout_mtx, &inc_cnt](std::vector<Data *>::iterator begin,
@@ -206,9 +201,7 @@ double knn::test_performance()
     {
         std::vector<Data *>::iterator end = start + chunk_size;
         if (end > final_end)
-        {
             end = final_end;
-        }
         std::thread t(predict_task, start, end);
         ts.emplace_back(std::move(t));
         start = end;
