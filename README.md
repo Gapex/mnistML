@@ -14,3 +14,7 @@ cd build
 cmake ..
 make
 ```
+
+### 已经实现
+1. KNN算法
+2. Kmeans【进行中】
