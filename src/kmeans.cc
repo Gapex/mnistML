@@ -42,6 +42,7 @@ void kmeans::train()
     {
         model[data.get_label()].push(data);
     }
+    printf("聚类完成\n");
 }
 
 uint8_t kmeans::predict(const Data &query)
