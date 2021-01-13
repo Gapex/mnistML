@@ -2,6 +2,30 @@
 #include <vector>
 #include "data.hpp"
 #include <unordered_map>
+
+class cluster
+{
+public:
+    cluster();
+    ~cluster();
+
+    void push(const Data &point);
+    
+    uint8_t get_most_calss();
+
+    double query(const Data &point);
+
+private:
+    void set_most(uint8_t label, uint32_t freq);
+
+    std::vector<double> centroid;
+    std::vector<Data> points;
+    std::unordered_map<uint8_t, uint32_t> class_cnt;
+
+    uint8_t most_class;
+    uint32_t most_freq;
+};
+
 class kmeans
 {
 public:
@@ -28,5 +52,5 @@ private:
     std::vector<Data> test_data;
     std::vector<Data> validation_data;
 
-    std::unordered_map<uint8_t, Data> label_to_focus;
+    std::unordered_map<uint8_t, cluster> model;
 };
