@@ -9,7 +9,6 @@ sh download-minist.sh
 
 ### 构建
 ```bash
-mkdir build
 cd build
 cmake ..
 make
