@@ -167,3 +167,8 @@ const std::vector<Data> &DataHandler::get_validataion_data()
 {
     return validation_data;
 }
+
+int DataHandler::get_num_class()
+{
+    return num_classes;
+}

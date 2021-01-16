@@ -1,76 +1,55 @@
-#include "kmeans.hpp"
+#include "cluster.hpp"
 #include <cmath>
 
-cluster::cluster() : most_class(-1), most_freq(0)
+cluster::cluster(Data inital_point) : centroid(inital_point.get_feature_vector().begin(), inital_point.get_feature_vector().end())
 {
+    cluster_points.push_back(inital_point);
+    class_cnt[inital_point.get_label()] = 1;
+    most_frequent_class = inital_point.get_label();
 }
 
 cluster::~cluster()
 {
 }
 
-void cluster::push(const Data &point)
+void cluster::add_to_cluster(const Data &point)
 {
-    const auto &feature = point.get_feature_vector();
-    size_t old_size = points.size();
-    points.push_back(point);
-    if (centroid.empty() == true)
+    size_t previous_size = cluster_points.size();
+    cluster_points.push_back(point);
+    size_t new_size = cluster_points.size();
+    size_t i = 0;
+    for (double &value : centroid)
     {
-        most_class = point.get_label();
-        most_freq = 1;
-        centroid.reserve(feature.size());
-        for (auto val : feature)
+        double val = value * previous_size;
+        val += point.get_feature_vector().at(i++);
+        val /= new_size;
+        value = val;
+    }
+    ++class_cnt[point.get_label()];
+    set_most_frequent_class();
+}
+
+void cluster::set_most_frequent_class()
+{
+    int best_class;
+    int freq = 0;
+    for (auto &kv : class_cnt)
+    {
+        if (kv.second > freq)
         {
-            centroid.push_back(val);
+            freq = kv.second;
+            best_class = kv.first;
         }
-        return;
     }
-    size_t ndimension = centroid.size();
-    if (ndimension != point.get_feature_vector_size())
-    {
-        printf("vector dimension mismatch: %lu != %lu\n", ndimension, feature.size());
-        exit(EXIT_FAILURE);
-    }
-    for (int i = 0; i < ndimension; ++i)
-    {
-        double value = centroid.at(i);
-        value *= old_size;
-        value += feature.at(i);
-        value /= points.size();
-        centroid.at(i) = value;
-    }
-    uint32_t new_freq = ++class_cnt[point.get_label()];
-    set_most(point.get_label(), new_freq);
+    most_frequent_class = best_class;
 }
 
-double cluster::query(const Data &point)
+const std::vector<double> &cluster::get_centroid() const
 {
-    const auto &feature = point.get_feature_vector();
-    size_t ndimension = centroid.size();
-    if (ndimension != feature.size())
-    {
-        printf("[cluster::query] vector dimension mismatch: %lu != %lu\n", ndimension, feature.size());
-        exit(EXIT_FAILURE);
-    }
-    double res = 0;
-    for (size_t i = 0; i < ndimension; ++i)
-    {
-        res += std::pow(feature[i] - centroid[i], 2);
-    }
-    res = std::sqrt(res);
-    return res;
+    return centroid;
 }
 
-void cluster::set_most(uint8_t label, uint32_t freq)
+uint8_t cluster::get_most_calss() const
 {
-    if (freq > most_freq)
-    {
-        most_freq = freq;
-        most_class = label;
-    }
-}
-
-uint8_t cluster::get_most_calss()
-{
-    return most_class;
+    return most_frequent_class;
 }
